@@ -1,15 +1,11 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-
-
 import telebot
 from telebot import types
 import json
 from datetime import datetime
 from datetime import timedelta
 from datetime import date
-import time
-import pytz
 
 
 def to_log(text, message):
@@ -32,10 +28,8 @@ def good_date(date):  # DD.MM.YYYY
 
 def time_7_days(date):  # DD.MM.YYYY
     try:
-        print(datetime.now(pytz.timezone( 'Europe/Moscow' )).date(), datetime.now(pytz.timezone( 'Europe/Moscow' )).date() + timedelta(days=7), datetime.strptime(date,
-                                                                                '%Y.%m.%d').date())
-        return datetime.now(pytz.timezone( 'Europe/Moscow' )).date() + timedelta(days=7) >= datetime.strptime(date,
-                                                                                '%Y.%m.%d').date() >= datetime.now(pytz.timezone( 'Europe/Moscow' )).date()
+        return datetime.now().date() + timedelta(days=7) >= datetime.strptime(date,
+                                                                                '%Y.%m.%d').date() >= datetime.now().date()
     except:
         return False
 
@@ -75,44 +69,96 @@ def main_start(message):
 @bot.message_handler(content_types=['text'])
 def start(message):
     to_log("start", message)
-    bot.send_message(message.chat.id, 'Если вдруг я не отвечаю, нажми /start!', reply_markup=main_markup)
-
-
-def main(message):
-    to_log("main", message)
-    bot.send_message(message.chat.id, 'Что ты хочешь сделать?', reply_markup=main_markup)
-    bot.register_next_step_handler(message, main_choose)
+    bot.send_message(message.chat.id, 'Чтобы я заработал, нажми /start!', reply_markup=main_markup)
 
 
 def main_choose(message):
     to_log("main_choose", message)
     if message.text == 'Мы в ВКонтакте':
         bot.send_message(message.chat.id, 'Мы в Вконтакте: \nhttps://vk.com/gonkageroevkazan')
-        main(message)
+        to_log("main", message)
+        bot.register_next_step_handler(message, main_choose)
     elif message.text == 'Регистрация на Гонку Героев':
         bot.send_message(message.chat.id, 'Лови ссылку для регистрации!\nhttps://heroleague.ru/race/')
-        main(message)
+        to_log("main", message)
+        bot.register_next_step_handler(message, main_choose)
     elif message.text == 'Регистрация на подготовку':
-        training_show(message)
+        to_log("training_show", message)
+        training_markup = types.ReplyKeyboardMarkup(True)
+        Finded = False
+        with open("trainings.json") as json_training:
+            data = json.loads(json_training.read())
+            for tr in data:
+                if time_7_days(tr["date"]["year"] + '.' + tr["date"]["month"] + '.' + tr["date"]["day"]):
+                    now = types.KeyboardButton(
+                        tr["date"]["year"] + '.' + tr["date"]["month"] + '.' + tr["date"]["day"] + ' : ' + tr["place"])
+                    training_markup.row(now)
+                    Finded = True
+        training_markup.row(back)
+        if Finded:
+            bot.send_message(message.chat.id, 'На ближайшую неделю я нашел такие тренировки. Выбери одну из них',
+                             reply_markup=training_markup)
+            bot.register_next_step_handler(message, register_training)
+        else:
+            bot.send_message(message.chat.id,
+                             'Я не нашел ни одну тренировку на ближайшую неделю. Может, их еще не добавили?',
+                             reply_markup=main_markup)
+            bot.register_next_step_handler(message, main_choose)
     elif message.text == 'О Гонке Героев':
         bot.send_message(message.chat.id,
                          '"Гонка Героев” - это серия драйвовых забегов с препятствиями.\nУчастники мероприятия преодолевают полосу препятствий, разработанную профессиональными инженерами и опытными инструкторами. \nРукоходы и переправы, рвы и поля с колючей проволокой, достойная награда и чувство гордости на финише - и это только часть твоего незабываемого приключения.\nПодробнее можешь почитать на https://heroleague.ru/race/')
-        main(message)
+        to_log("main", message)
+        bot.register_next_step_handler(message, main_choose)
     elif message.text == 'Панель админа':
-        admin(message)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
     elif message.text == 'Мы в Instagram':
         bot.send_message(message.chat.id, 'Мы в Instagram: \nhttps://www.instagram.com/heroleaguetraining_kzn/')
-        main(message)
+        to_log("main", message)
+        bot.register_next_step_handler(message, main_choose)
     else:
         bot.send_message(message.chat.id,
                          'Я не понимаю твой запрос( Если ты уверен, что все правильно, напиши сюда @Ninevskiy')
-        main(message)
+        to_log("main", message)
+        bot.register_next_step_handler(message, main_choose)
 
 
-def training_show(message):
+registration_date = {}
+
+
+def register_training(message):
+    to_log("register_training", message)
+    global registration_date
+    if message.text == 'Назад':
+        to_log("main", message)
+        bot.send_message(message.chat.id, 'Что ты хочешь сделать?', reply_markup=main_markup)
+        bot.register_next_step_handler(message, main_choose)
+        return
+    if not time_7_days(message.text[:10] or len(message.text) < 10):
+        bot.send_message(message.chat.id, 'Я не нашел такой тренировки.')
+        to_log("main", message)
+        bot.send_message(message.chat.id, 'Что ты хочешь сделать?', reply_markup=main_markup)
+        bot.register_next_step_handler(message, main_choose)
+        return
+    with open("trainings.json") as json_training:
+        data = json.loads(json_training.read())
+        for tr in data:
+            if tr["date"]["year"] == message.text[0:4] and tr["date"]["month"] == message.text[5:7] and tr["date"][
+                                        "day"] == message.text[8:10]:
+                text = make_text(tr["date"]["year"], tr["date"]["month"], tr["date"]["day"], tr["description"],
+                                 tr["place"],
+                                 tr["date"]["hour"], tr["date"]["minutes"])
+                bot.send_message(message.chat.id, text)
+                bot.send_message(message.chat.id, 'Напиши свое имя и фамилию, чтобы мы записали тебя на тренировку!',
+                                 reply_markup=back_markup)
+                registration_date[message.chat.id] = message.text[0:10].split('.')
+                bot.register_next_step_handler(message, register_end)
+                return
+    bot.send_message(message.chat.id, 'Я не нашел такой тренировки.')
     to_log("training_show", message)
     training_markup = types.ReplyKeyboardMarkup(True)
-    Finded = False
     with open("trainings.json") as json_training:
         data = json.loads(json_training.read())
         for tr in data:
@@ -125,43 +171,12 @@ def training_show(message):
     if Finded:
         bot.send_message(message.chat.id, 'На ближайшую неделю я нашел такие тренировки. Выбери одну из них',
                          reply_markup=training_markup)
+        bot.register_next_step_handler(message, register_training)
     else:
         bot.send_message(message.chat.id,
                          'Я не нашел ни одну тренировку на ближайшую неделю. Может, их еще не добавили?',
                          reply_markup=main_markup)
-        main(message)
-        return
-    bot.register_next_step_handler(message, register_training)
-
-
-registration_date = {}
-
-
-def register_training(message):
-    to_log("register_training", message)
-    global registration_date
-    if message.text == 'Назад':
-        main(message)
-        return
-    if not time_7_days(message.text[:10] or len(message.text) < 10):
-        bot.send_message(message.chat.id, 'Я не нашел такой тренировки.')
-        return
-    with open("trainings.json") as json_training:
-        data = json.loads(json_training.read())
-        for tr in data:
-            if tr["date"]["year"] == message.text[0:4] and tr["date"]["month"] == message.text[5:7] and tr["date"][
-                "day"] == message.text[8:10]:
-                text = make_text(tr["date"]["year"], tr["date"]["month"], tr["date"]["day"], tr["description"],
-                                 tr["place"],
-                                 tr["date"]["hour"], tr["date"]["minutes"])
-                bot.send_message(message.chat.id, text)
-                bot.send_message(message.chat.id, 'Напиши свое имя и фамилию, чтобы мы записали тебя на тренировку!',
-                                 reply_markup=back_markup)
-                registration_date[message.chat.id] = message.text[0:10].split('.')
-                bot.register_next_step_handler(message, register_end)
-                return
-    bot.send_message(message.chat.id, 'Я не нашел такой тренировки.')
-    training_show(message)
+        bot.register_next_step_handler(message, main_choose)
 
 
 def register_end(message):
@@ -169,7 +184,26 @@ def register_end(message):
     global registration_date
     reg_date = registration_date[message.chat.id]
     if message.text == 'Назад':
-        training_show(message)
+        to_log("training_show", message)
+        training_markup = types.ReplyKeyboardMarkup(True)
+        with open("trainings.json") as json_training:
+            data = json.loads(json_training.read())
+            for tr in data:
+                if time_7_days(tr["date"]["year"] + '.' + tr["date"]["month"] + '.' + tr["date"]["day"]):
+                    now = types.KeyboardButton(
+                        tr["date"]["year"] + '.' + tr["date"]["month"] + '.' + tr["date"]["day"] + ' : ' + tr["place"])
+                    training_markup.row(now)
+                    Finded = True
+        training_markup.row(back)
+        if Finded:
+            bot.send_message(message.chat.id, 'На ближайшую неделю я нашел такие тренировки. Выбери одну из них',
+                             reply_markup=training_markup)
+            bot.register_next_step_handler(message, register_training)
+        else:
+            bot.send_message(message.chat.id,
+                             'Я не нашел ни одну тренировку на ближайшую неделю. Может, их еще не добавили?',
+                             reply_markup=main_markup)
+            bot.register_next_step_handler(message, main_choose)
         return
     with open("trainings.json") as json_training:
         data = json.loads(json_training.read())
@@ -181,18 +215,22 @@ def register_end(message):
                 with open("trainings.json", "w") as file1:
                     json.dump(data, file1)
                 bot.send_message(message.chat.id, 'Я записал тебя на эту тренировку. Не забудь прийти!')
-                main(message)
+                to_log("main", message)
+                bot.send_message(message.chat.id, 'Что ты хочешь сделать?', reply_markup=main_markup)
+                bot.register_next_step_handler(message, main_choose)
                 return
     bot.send_message(message.chat.id, 'Что то пошло не так( Попробуйте позже или напишите @Ninevskiy')
-    main(message)
+    to_log("main", message)
+    bot.send_message(message.chat.id, 'Что ты хочешь сделать?', reply_markup=main_markup)
+    bot.register_next_step_handler(message, main_choose)
 
 
 admin_markup = types.ReplyKeyboardMarkup(True)
 new = types.KeyboardButton('Новая тренировка')
-edit = types.KeyboardButton('Изменить тренировку')
+edit_for_markup = types.KeyboardButton('Изменить тренировку')
 check = types.KeyboardButton('Посмотреть тренировку')
 delete = types.KeyboardButton('Удалить тренировку')
-admin_markup.row(new, edit)
+admin_markup.row(new, edit_for_markup)
 admin_markup.row(check, delete)
 admin_markup.row(back)
 
@@ -205,6 +243,7 @@ edit_markup.row(desc, tim)
 edit_markup.row(place, ret)
 nothing_markup = types.ReplyKeyboardMarkup(True)
 nothing_markup.row(ret)
+
 training_date = {}
 edit = {}
 
@@ -223,7 +262,10 @@ def admin_choose(message):
                          reply_markup=nothing_markup)
         bot.register_next_step_handler(message, new_training_place)
     elif message.text == 'Изменить тренировку':
-        edit_training_choose_tr(message)
+        to_log("edit_training_choose_tr", message)
+        text = 'Введи дату тренировки, которую ты хочешь изменить, в формате DD.MM.YYYY'
+        bot.send_message(message.chat.id, text, reply_markup=nothing_markup)
+        bot.register_next_step_handler(message, find_training)
     elif message.text == 'Посмотреть тренировку':
         bot.send_message(message.chat.id, 'За какую дату ты хочешь посмотреть тренировку? Напиши в формате DD.MM.YYYY',
                          reply_markup=nothing_markup)
@@ -233,7 +275,9 @@ def admin_choose(message):
                          reply_markup=nothing_markup)
         bot.register_next_step_handler(message, delete_training)
     else:
-        main(message)
+        to_log("main", message)
+        bot.send_message(message.chat.id, 'Что ты хочешь сделать?', reply_markup=main_markup)
+        bot.register_next_step_handler(message, main_choose)
 
 
 def make_text(year, month, day, desc, place, hour, minutes):
@@ -251,7 +295,10 @@ def make_lst(lst):
 def delete_training(message):
     to_log("delete_training", message)
     if message.text == 'Назад':
-        admin(message)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
         return
     date = message.text.split('.')
     with open("trainings.json") as json_training:
@@ -263,20 +310,31 @@ def delete_training(message):
                     with open("trainings.json", "w") as file1:
                         json.dump(data, file1)
                     bot.send_message(message.chat.id, 'Я удалил тренировку!')
-                    admin(message)
+                    to_log("admin", message)
+                    bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                                     reply_markup=admin_markup)
+                    bot.register_next_step_handler(message, admin_choose)
                     return
         except:
             bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том формате. Попробуй заново')
-            admin(message)
+            to_log("admin", message)
+            bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                             reply_markup=admin_markup)
+            bot.register_next_step_handler(message, admin_choose)
             return
     bot.send_message(message.chat.id, 'Такой тренировки нет!', reply_markup=edit_markup)
-    admin(message)
+    to_log("admin", message)
+    bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?', reply_markup=admin_markup)
+    bot.register_next_step_handler(message, admin_choose)
 
 
 def check_training(message):
     to_log("check_training", message)
     if message.text == 'Назад':
-        admin(message)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
         return
     date = message.text.split('.')
     with open("trainings.json") as json_training:
@@ -290,34 +348,35 @@ def check_training(message):
                     lst = make_lst(tr["people"])
                     if len(lst) > 0:
                         bot.send_message(message.chat.id, lst)
-                    admin(message)
+                    to_log("admin", message)
+                    bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                                     reply_markup=admin_markup)
+                    bot.register_next_step_handler(message, admin_choose)
                     return
             except:
                 bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том формате. Попробуй заново')
-                admin(message)
+                to_log("admin", message)
+                bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                                 reply_markup=admin_markup)
+                bot.register_next_step_handler(message, admin_choose)
                 return
     bot.send_message(message.chat.id, 'Такой тренировки нет, но ты можешь создать ее!', reply_markup=edit_markup)
-    admin(message)
+    to_log("admin", message)
+    bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?', reply_markup=admin_markup)
+    bot.register_next_step_handler(message, admin_choose)
 
-
-def edit_training_choose_tr(message):
-    to_log("edit_training_choose_tr", message)
-    text = 'Введи дату тренировки, которую ты хочешь изменить, в формате DD.MM.YYYY'
-    bot.send_message(message.chat.id, text, reply_markup=nothing_markup)
-    bot.register_next_step_handler(message, find_training)
 
 
 def find_training(message):
     to_log("find_training", message)
     if message.text == 'Назад':
-        admin(message)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
         return
     global training_date
     training_date[message.chat.id] = message.text.split('.')
-    edit_training(message)
-
-
-def edit_training(message):
     to_log("edit_training", message)
     try:
         tr = training_date[message.chat.id]
@@ -328,7 +387,12 @@ def edit_training(message):
     except:
         bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том формате. Попробуй заново',
                          reply_markup=edit_markup)
-        admin(message)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
+
+
 
 
 def edit_training_choose(message):
@@ -341,19 +405,18 @@ def edit_training_choose(message):
     elif message.text == "Описание":
         edit[message.chat.id] = 2
     elif message.text == "Назад":
-        admin(message)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
         return
     else:
         bot.send_message(message.chat.id, 'Я не понял, повтори, пожалуйста, что ты хочешь изменить?',
                          reply_markup=edit_markup)
         bot.register_next_step_handler(message, edit_training_choose)
         return
-    edit_training_final(message)
-
-
-def edit_training_final(message):
     to_log("edit_training_final", message)
-    global edit, training_date
+    global training_date
     tr_date = training_date[message.chat.id]
     with open("trainings.json") as json_training:
         data = json.loads(json_training.read())
@@ -378,11 +441,18 @@ def edit_training_final(message):
                         bot.register_next_step_handler(message, edit_training_end)
                         return
             except:
-                bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том форматею Попробуй заново')
-                admin(message)
+                bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том формате. Попробуй заново')
+                to_log("admin", message)
+                bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                                 reply_markup=admin_markup)
+                bot.register_next_step_handler(message, admin_choose)
                 return
         bot.send_message(message.chat.id, 'Такой тренировки нет. Но ты можешь создать ее!')
-        admin(message)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
+
 
 
 def edit_training_end(message):
@@ -390,7 +460,20 @@ def edit_training_end(message):
     global edit, training_date
     tr_date = training_date[message.chat.id]
     if message.text == 'Назад':
-        edit_training(message)
+        to_log("edit_training", message)
+        try:
+            tr = training_date[message.chat.id]
+            text = tr[0] + '.' + tr[1] + '.' + tr[2]
+            text = 'Что ты хочешь изменить в тренировке ' + text + '?'
+            bot.send_message(message.chat.id, text, reply_markup=edit_markup)
+            bot.register_next_step_handler(message, edit_training_choose)
+        except:
+            bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том формате. Попробуй заново',
+                             reply_markup=edit_markup)
+            to_log("admin", message)
+            bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                             reply_markup=admin_markup)
+            bot.register_next_step_handler(message, admin_choose)
         return
     with open("trainings.json") as json_training:
         data = json.loads(json_training.read())
@@ -405,7 +488,21 @@ def edit_training_end(message):
                         tr["date"]["minutes"] = dt[1]
                     except:
                         bot.send_message(message.chat.id, "Ты ввел время не в том формате. Попробуй заново")
-                        edit_training(message)
+                        to_log("edit_training", message)
+                        try:
+                            tr = training_date[message.chat.id]
+                            text = tr[0] + '.' + tr[1] + '.' + tr[2]
+                            text = 'Что ты хочешь изменить в тренировке ' + text + '?'
+                            bot.send_message(message.chat.id, text, reply_markup=edit_markup)
+                            bot.register_next_step_handler(message, edit_training_choose)
+                        except:
+                            bot.send_message(message.chat.id,
+                                             'Ты ввел дату тренировки не в том формате. Попробуй заново',
+                                             reply_markup=edit_markup)
+                            to_log("admin", message)
+                            bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                                             reply_markup=admin_markup)
+                            bot.register_next_step_handler(message, admin_choose)
                         return
                 elif edit[message.chat.id] == 2:
                     tr["description"] = message.text
@@ -416,18 +513,37 @@ def edit_training_end(message):
                 break
 
     bot.send_message(message.chat.id, "Успешно изменено!")
-    edit_training(message)
+    to_log("edit_training", message)
+    try:
+        tr = training_date[message.chat.id]
+        text = tr[0] + '.' + tr[1] + '.' + tr[2]
+        text = 'Что ты хочешь изменить в тренировке ' + text + '?'
+        bot.send_message(message.chat.id, text, reply_markup=edit_markup)
+        bot.register_next_step_handler(message, edit_training_choose)
+    except:
+        bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том формате. Попробуй заново',
+                         reply_markup=edit_markup)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
 
 
 def new_training_place(message):
     to_log("new_training_place", message)
     if message.text == 'Назад':
-        admin(message)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
         return
     global training_date
     if not good_date(message.text):
         bot.send_message(message.chat.id, 'Такой даты не существует. Попробуй заново')
-        admin(message)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
         return
     training_date[message.chat.id] = message.text.split('.')
     tr_date = training_date[message.chat.id]
@@ -439,11 +555,27 @@ def new_training_place(message):
                         tr_date[0]:
                     bot.send_message(message.chat.id,
                                      'Эта тренировка уже существует. \nПеревожу тебя на ee редактирование')
-                    edit_training(message)
+                    to_log("edit_training", message)
+                    try:
+                        tr = training_date[message.chat.id]
+                        text = tr[0] + '.' + tr[1] + '.' + tr[2]
+                        text = 'Что ты хочешь изменить в тренировке ' + text + '?'
+                        bot.send_message(message.chat.id, text, reply_markup=edit_markup)
+                        bot.register_next_step_handler(message, edit_training_choose)
+                    except:
+                        bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том формате. Попробуй заново',
+                                         reply_markup=edit_markup)
+                        to_log("admin", message)
+                        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                                         reply_markup=admin_markup)
+                        bot.register_next_step_handler(message, admin_choose)
                     return
             except:
                 bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том формате. Попробуй еще раз.')
-                admin(message)
+                to_log("admin", message)
+                bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                                 reply_markup=admin_markup)
+                bot.register_next_step_handler(message, admin_choose)
                 return
         new_train = {"date": {
             "year": 0,
@@ -459,7 +591,20 @@ def new_training_place(message):
         with open("trainings.json", "w") as file1:
             json.dump(data, file1)
     bot.send_message(message.chat.id, 'Отлично, я создал тренировку! \nПеревожу тебя на ее редактирование')
-    edit_training(message)
+    to_log("edit_training", message)
+    try:
+        tr = training_date[message.chat.id]
+        text = tr[0] + '.' + tr[1] + '.' + tr[2]
+        text = 'Что ты хочешь изменить в тренировке ' + text + '?'
+        bot.send_message(message.chat.id, text, reply_markup=edit_markup)
+        bot.register_next_step_handler(message, edit_training_choose)
+    except:
+        bot.send_message(message.chat.id, 'Ты ввел дату тренировки не в том формате. Попробуй заново',
+                         reply_markup=edit_markup)
+        to_log("admin", message)
+        bot.send_message(message.chat.id, 'Привет! Это панелька админа. Что ты хочешь сделать?',
+                         reply_markup=admin_markup)
+        bot.register_next_step_handler(message, admin_choose)
 
 
 bot.polling(none_stop=True)
