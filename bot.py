@@ -1,21 +1,42 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
+
+
 import telebot
 from telebot import types
 import json
 from datetime import datetime
 from datetime import timedelta
 from datetime import date
+import time
+import pytz
 
 
 def to_log(text, message):
-    ct = datetime.now().time()
-    cd = date.today()
-    today = "{}-{}-{} {}:{}:{}".format(cd.year, cd.month, cd.day, ct.hour, ct.minute, ct.second)
-    text = today + ' : ' + str(message.from_user.username) + ' - ' + str(
-        message.from_user.id) + ' : ' + message.text + ' - ' + text + '\n'
-    with open('log.txt', 'a') as log:
-        log.write(text)
+    try:
+        ct = datetime.now().time()
+        cd = date.today()
+        today = "{}-{}-{} {}:{}:{}".format(cd.year, cd.month, cd.day, ct.hour, ct.minute, ct.second)
+        text = today + ' : ' + str(message.from_user.username) + ' - ' + str(
+            message.from_user.id) + ' ' + str(message.from_user.first_name) + '<->' + str(message.from_user.last_name) + ' : ' + message.text + ' - ' + text + '\n'
+        with open('log.txt', 'a') as log:
+            log.write(text)
+    except:
+        try:
+            ct = datetime.now().time()
+            cd = date.today()
+            today = "{}-{}-{} {}:{}:{}".format(cd.year, cd.month, cd.day, ct.hour, ct.minute, ct.second)
+            text = today + ' : ' + str(message.from_user.username) + ' - ' + str(
+                message.from_user.id) +' : ' + message.text + ' - ' + text + '\n'
+            with open('log.txt', 'a') as log:
+                log.write(text)
+        except:
+            ct = datetime.now().time()
+            cd = date.today()
+            today = "{}-{}-{} {}:{}:{}".format(cd.year, cd.month, cd.day, ct.hour, ct.minute, ct.second)
+            text = today + ' : ' +' : ' + message.text + ' - ' + text + '\n'
+            with open('log.txt', 'a') as log:
+                log.write(text)
 
 
 def good_date(date):  # DD.MM.YYYY
@@ -28,8 +49,10 @@ def good_date(date):  # DD.MM.YYYY
 
 def time_7_days(date):  # DD.MM.YYYY
     try:
-        return datetime.now().date() + timedelta(days=7) >= datetime.strptime(date,
-                                                                                '%Y.%m.%d').date() >= datetime.now().date()
+        print(datetime.now(pytz.timezone( 'Europe/Moscow' )).date(), datetime.now(pytz.timezone( 'Europe/Moscow' )).date() + timedelta(days=7), datetime.strptime(date,
+                                                                                '%Y.%m.%d').date())
+        return datetime.now(pytz.timezone( 'Europe/Moscow' )).date() + timedelta(days=7) >= datetime.strptime(date,
+                                                                                '%Y.%m.%d').date() >= datetime.now(pytz.timezone( 'Europe/Moscow' )).date()
     except:
         return False
 
@@ -95,6 +118,7 @@ def main_choose(message):
                     training_markup.row(now)
                     Finded = True
         training_markup.row(back)
+        print('lol')
         if Finded:
             bot.send_message(message.chat.id, 'На ближайшую неделю я нашел такие тренировки. Выбери одну из них',
                              reply_markup=training_markup)
