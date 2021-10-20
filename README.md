@@ -1,7 +1,7 @@
 # heroracebot
-Это бот для Гонки Героев
-Здесь ты можешь создавать тренировки, добавлять к ним описания, время и место, регистрироваться на тренировки и смотреть, кто на них зарегестрировался. 
+This is bot for Hero Race Kazan
+Here you can create workouts, add description, place and time for them, sign up for workouts and manage registrations.
 
-bot.py - основной бот, через который происходит все взаимодействие
+bot.py - main bot that provide all communication
 
-reminder.py - дополнительный скрипт, который отправляет всем зарегистрировавшимся напоминания о тренировке за день и за 2 часа.
+reminder.py - additional script, which send messages about upcomming trainings
